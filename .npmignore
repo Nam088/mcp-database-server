@@ -1,0 +1,34 @@
+# Source files
+src/
+*.ts
+!*.d.ts
+tsconfig.json
+
+# Development files
+.git/
+.gitignore
+*.log
+.env
+.DS_Store
+*.tsbuildinfo
+
+# Documentation (keep README.md, exclude .vi.md)
+README.vi.md
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Test files (if any)
+test/
+tests/
+__tests__/
+*.test.ts
+*.spec.ts
+
+# Build artifacts (keep dist/)
+*.map
+

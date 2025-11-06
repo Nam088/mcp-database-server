@@ -1,0 +1,55 @@
+{
+  "name": "@nam088/mcp-database-server",
+  "version": "1.0.2",
+  "description": "MCP server for multiple database operations (PostgreSQL, Redis, MongoDB, LDAP)",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "mcp-database-server": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "README.vi.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc --watch"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "postgresql",
+    "postgres",
+    "mongodb",
+    "mongo",
+    "redis",
+    "ldap",
+    "database",
+    "adapter"
+  ],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nam088/mcp-database-server.git"
+  },
+  "bugs": {
+    "url": "https://github.com/nam088/mcp-database-server/issues"
+  },
+  "homepage": "https://github.com/nam088/mcp-database-server#readme",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "latest",
+    "ldapts": "latest",
+    "mongodb": "latest",
+    "pg": "latest",
+    "redis": "latest"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "@types/pg": "latest",
+    "typescript": "latest"
+  }
+}
