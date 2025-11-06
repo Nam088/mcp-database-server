@@ -24,6 +24,8 @@ src/
 └── adapters/
     ├── base.ts           # Base adapter interface
     ├── postgres.ts       # PostgreSQL adapter implementation
+    ├── mysql.ts          # MySQL adapter implementation
+    ├── sqlite.ts         # SQLite adapter implementation
     ├── redis.ts          # Redis adapter implementation
     ├── mongo.ts          # MongoDB adapter implementation
     └── ldap.ts           # LDAP adapter implementation
@@ -34,6 +36,8 @@ src/
 Each database has its own adapter implementing the `DatabaseAdapter` interface:
 
 - `PostgresAdapter`: PostgreSQL support with 13 SQL tools
+- `MySQLAdapter`: MySQL/MariaDB support with 13 SQL tools
+- `SQLiteAdapter`: SQLite support with 13 SQL tools (using better-sqlite3)
 - `RedisAdapter`: Redis support with 16 Redis tools
 - `MongoAdapter`: MongoDB support with 15 MongoDB tools
 - `LDAPAdapter`: LDAP support with 6 LDAP tools
@@ -58,6 +62,8 @@ npm run build
 
 - `DB_TYPE`: Database type (default: `postgres`)
   - `postgres` or `postgresql`: PostgreSQL
+  - `mysql` or `mysql2`: MySQL/MariaDB
+  - `sqlite`: SQLite
   - `redis`: Redis
   - `mongodb` or `mongo`: MongoDB
   - `ldap`: LDAP
@@ -67,12 +73,14 @@ npm run build
   - `false` or `0`: Allows both read and write (must be set explicitly)
 
 - `POSTGRES_CONNECTION_STRING`: Connection string for PostgreSQL
+- `MYSQL_CONNECTION_STRING` or `MYSQL_URL`: Connection string for MySQL
+- `SQLITE_CONNECTION_STRING` or `SQLITE_URL`: Connection string for SQLite (file path)
 - `REDIS_CONNECTION_STRING` or `REDIS_URL`: Connection string for Redis
 - `MONGODB_CONNECTION_STRING` or `MONGODB_URL`: Connection string for MongoDB
 - `LDAP_CONNECTION_STRING` or `LDAP_URL`: Connection string for LDAP
 - `LDAP_BIND_DN`: Bind DN for LDAP authentication (optional)
 - `LDAP_BIND_PASSWORD`: Bind password for LDAP authentication (optional)
-- `DATABASE_URL`: Connection string (fallback for PostgreSQL)
+- `DATABASE_URL`: Connection string (fallback for PostgreSQL, MySQL, or SQLite)
 
 Examples:
 
@@ -86,6 +94,16 @@ export POSTGRES_CONNECTION_STRING="postgresql://user:password@localhost:5432/myd
 export DB_TYPE="redis"
 export REDIS_CONNECTION_STRING="redis://localhost:6379"
 export READ_ONLY_MODE="false"
+
+# MySQL with read-only mode (default)
+export DB_TYPE="mysql"
+export MYSQL_CONNECTION_STRING="mysql://user:password@localhost:3306/mydb"
+# READ_ONLY_MODE defaults to true
+
+# SQLite with read-only mode (default)
+export DB_TYPE="sqlite"
+export SQLITE_CONNECTION_STRING="sqlite://./database.sqlite"
+# READ_ONLY_MODE defaults to true
 
 # MongoDB with read-only mode (default)
 export DB_TYPE="mongodb"
@@ -384,6 +402,122 @@ If you prefer to install locally or use a specific path:
 }
 ```
 
+### MySQL
+
+#### Read-Only Mode (Default) with npx
+
+**No need to set `READ_ONLY_MODE` as this is the default**:
+
+```json
+{
+  "mcpServers": {
+    "mysql-readonly": {
+      "command": "npx",
+      "args": ["-y", "@nam088/mcp-database-server"],
+      "env": {
+        "DB_TYPE": "mysql",
+        "MYSQL_CONNECTION_STRING": "mysql://user:password@localhost:3306/mydb"
+      }
+    }
+  }
+}
+```
+
+#### Read-Write Mode with npx
+
+**Note**: You must explicitly set `READ_ONLY_MODE` to `"false"` to allow write operations.
+
+```json
+{
+  "mcpServers": {
+    "mysql": {
+      "command": "npx",
+      "args": ["-y", "@nam088/mcp-database-server"],
+      "env": {
+        "DB_TYPE": "mysql",
+        "MYSQL_CONNECTION_STRING": "mysql://user:password@localhost:3306/mydb",
+        "READ_ONLY_MODE": "false"
+      }
+    }
+  }
+}
+```
+
+#### MySQL with DATABASE_URL using npx
+
+```json
+{
+  "mcpServers": {
+    "mysql": {
+      "command": "npx",
+      "args": ["-y", "@nam088/mcp-database-server"],
+      "env": {
+        "DB_TYPE": "mysql",
+        "DATABASE_URL": "mysql://user:password@localhost:3306/mydb"
+      }
+    }
+  }
+}
+```
+
+### SQLite
+
+#### Read-Only Mode (Default) with npx
+
+**No need to set `READ_ONLY_MODE` as this is the default**:
+
+```json
+{
+  "mcpServers": {
+    "sqlite-readonly": {
+      "command": "npx",
+      "args": ["-y", "@nam088/mcp-database-server"],
+      "env": {
+        "DB_TYPE": "sqlite",
+        "SQLITE_CONNECTION_STRING": "sqlite://./database.sqlite"
+      }
+    }
+  }
+}
+```
+
+#### Read-Write Mode with npx
+
+**Note**: You must explicitly set `READ_ONLY_MODE` to `"false"` to allow write operations.
+
+```json
+{
+  "mcpServers": {
+    "sqlite": {
+      "command": "npx",
+      "args": ["-y", "@nam088/mcp-database-server"],
+      "env": {
+        "DB_TYPE": "sqlite",
+        "SQLITE_CONNECTION_STRING": "sqlite://./database.sqlite",
+        "READ_ONLY_MODE": "false"
+      }
+    }
+  }
+}
+```
+
+#### SQLite with absolute path using npx
+
+```json
+{
+  "mcpServers": {
+    "sqlite": {
+      "command": "npx",
+      "args": ["-y", "@nam088/mcp-database-server"],
+      "env": {
+        "DB_TYPE": "sqlite",
+        "SQLITE_CONNECTION_STRING": "/path/to/database.sqlite"
+      }
+    }
+  }
+}
+```
+
 ### LDAP
 
 **Note**: The project uses `ldapts` instead of `ldapjs` (which has been decommissioned) to ensure sustainability and better support.
@@ -507,6 +641,22 @@ You can configure multiple databases in the same MCP client:
         "READ_ONLY_MODE": "false"
       }
     },
+    "mysql": {
+      "command": "npx",
+      "args": ["-y", "@nam088/mcp-database-server"],
+      "env": {
+        "DB_TYPE": "mysql",
+        "MYSQL_CONNECTION_STRING": "mysql://user:password@localhost:3306/mydb"
+      }
+    },
+    "sqlite": {
+      "command": "npx",
+      "args": ["-y", "@nam088/mcp-database-server"],
+      "env": {
+        "DB_TYPE": "sqlite",
+        "SQLITE_CONNECTION_STRING": "sqlite://./database.sqlite"
+      }
+    },
     "mongodb": {
       "command": "npx",
       "args": ["-y", "@nam088/mcp-database-server"],
@@ -523,7 +673,7 @@ You can configure multiple databases in the same MCP client:
 
 **⚠️ By default, the server runs in read-only mode** to protect data from accidental deletion or modification. When `READ_ONLY_MODE` is `true` or not set (default), the server will block all write operations:
 
-**PostgreSQL:**
+**PostgreSQL, MySQL, SQLite:**
 - ✅ Allowed: `query` (SELECT)
 - ❌ Blocked: `execute_sql` (INSERT, UPDATE, DELETE, CREATE, etc.)
 

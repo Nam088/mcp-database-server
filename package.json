@@ -1,7 +1,7 @@
 {
   "name": "@nam088/mcp-database-server",
-  "version": "1.0.2",
-  "description": "MCP server for multiple database operations (PostgreSQL, Redis, MongoDB, LDAP)",
+  "version": "1.0.10",
+  "description": "MCP server for multiple database operations (PostgreSQL, MySQL, SQLite, Redis, MongoDB, LDAP)",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -27,6 +27,10 @@
     "mongo",
     "redis",
     "ldap",
+    "mysql",
+    "mysql2",
+    "sqlite",
+    "better-sqlite3",
     "database",
     "adapter"
   ],
@@ -40,14 +44,20 @@
     "url": "https://github.com/nam088/mcp-database-server/issues"
   },
   "homepage": "https://github.com/nam088/mcp-database-server#readme",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "latest",
+    "better-sqlite3": "latest",
     "ldapts": "latest",
     "mongodb": "latest",
+    "mysql2": "latest",
     "pg": "latest",
     "redis": "latest"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "latest",
     "@types/node": "latest",
     "@types/pg": "latest",
     "typescript": "latest"

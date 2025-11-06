@@ -6,9 +6,6 @@ import {
   Tool,
 } from "@modelcontextprotocol/sdk/types.js";
 import { DatabaseAdapter } from "./adapters/base.js";
-import { LDAPAdapter } from "./adapters/ldap.js";
-import { MongoAdapter } from "./adapters/mongo.js";
-import { RedisAdapter } from "./adapters/redis.js";
 
 // MCP Server implementation
 export class DatabaseMCPServer {
@@ -21,9 +18,11 @@ export class DatabaseMCPServer {
 
   constructor(adapter: DatabaseAdapter) {
     this.adapter = adapter;
-    this.isRedis = adapter instanceof RedisAdapter;
-    this.isMongo = adapter instanceof MongoAdapter;
-    this.isLDAP = adapter instanceof LDAPAdapter;
+    // Check adapter type using constructor name to avoid importing unused adapters
+    const adapterType = adapter.constructor.name;
+    this.isRedis = adapterType === "RedisAdapter";
+    this.isMongo = adapterType === "MongoAdapter";
+    this.isLDAP = adapterType === "LDAPAdapter";
     // Check READ_ONLY_MODE environment variable (default: true for safety)
     // Set to "false" or "0" explicitly to enable write operations
     this.readOnly = process.env.READ_ONLY_MODE !== "false" && process.env.READ_ONLY_MODE !== "0";
@@ -51,223 +50,228 @@ export class DatabaseMCPServer {
   private setupHandlers(): void {
     // List available tools
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
-      const tools: Tool[] = [
-        {
-          name: "query",
-          description: "Execute a SELECT SQL query and return results",
-          inputSchema: {
-            type: "object",
-            properties: {
-              sql: {
-                type: "string",
-                description: "SQL SELECT query to execute",
+      const tools: Tool[] = [];
+
+      // Only add SQL tools for PostgreSQL (not Redis, MongoDB, or LDAP)
+      if (!this.isRedis && !this.isMongo && !this.isLDAP) {
+        tools.push(
+          {
+            name: "query",
+            description: "Execute a SELECT SQL query and return results",
+            inputSchema: {
+              type: "object",
+              properties: {
+                sql: {
+                  type: "string",
+                  description: "SQL SELECT query to execute",
+                },
               },
-            },
-            required: ["sql"],
-          },
-        },
-        {
-          name: "execute_sql",
-          description: "Execute any SQL command (INSERT, UPDATE, DELETE, CREATE, etc.)",
-          inputSchema: {
-            type: "object",
-            properties: {
-              sql: {
-                type: "string",
-                description: "SQL command to execute",
-              },
-            },
-            required: ["sql"],
-          },
-        },
-        {
-          name: "list_tables",
-          description: "List all tables in the database",
-          inputSchema: {
-            type: "object",
-            properties: {
-              schema: {
-                type: "string",
-                description: "Schema name (default: 'public')",
-                default: "public",
-              },
+              required: ["sql"],
             },
           },
-        },
-        {
-          name: "describe_table",
-          description: "Get detailed schema information for a table",
-          inputSchema: {
-            type: "object",
-            properties: {
-              table: {
-                type: "string",
-                description: "Table name",
+          {
+            name: "execute_sql",
+            description: "Execute any SQL command (INSERT, UPDATE, DELETE, CREATE, etc.)",
+            inputSchema: {
+              type: "object",
+              properties: {
+                sql: {
+                  type: "string",
+                  description: "SQL command to execute",
+                },
               },
-              schema: {
-                type: "string",
-                description: "Schema name (default: 'public')",
-                default: "public",
-              },
+              required: ["sql"],
             },
-            required: ["table"],
           },
-        },
-        {
-          name: "list_schemas",
-          description: "List all schemas in the database",
-          inputSchema: {
-            type: "object",
-            properties: {},
-          },
-        },
-        {
-          name: "explain_query",
-          description: "Get query execution plan using EXPLAIN",
-          inputSchema: {
-            type: "object",
-            properties: {
-              sql: {
-                type: "string",
-                description: "SQL query to explain",
-              },
-            },
-            required: ["sql"],
-          },
-        },
-        {
-          name: "get_indexes",
-          description: "Get all indexes for a table",
-          inputSchema: {
-            type: "object",
-            properties: {
-              table: {
-                type: "string",
-                description: "Table name",
-              },
-              schema: {
-                type: "string",
-                description: "Schema name (default: 'public')",
-                default: "public",
-              },
-            },
-            required: ["table"],
-          },
-        },
-        {
-          name: "get_foreign_keys",
-          description: "Get all foreign keys for a table",
-          inputSchema: {
-            type: "object",
-            properties: {
-              table: {
-                type: "string",
-                description: "Table name",
-              },
-              schema: {
-                type: "string",
-                description: "Schema name (default: 'public')",
-                default: "public",
-              },
-            },
-            required: ["table"],
-          },
-        },
-        {
-          name: "get_table_size",
-          description: "Get table size information (size, row count)",
-          inputSchema: {
-            type: "object",
-            properties: {
-              table: {
-                type: "string",
-                description: "Table name",
-              },
-              schema: {
-                type: "string",
-                description: "Schema name (default: 'public')",
-                default: "public",
-              },
-            },
-            required: ["table"],
-          },
-        },
-        {
-          name: "list_views",
-          description: "List all views in a schema",
-          inputSchema: {
-            type: "object",
-            properties: {
-              schema: {
-                type: "string",
-                description: "Schema name (default: 'public')",
-                default: "public",
+          {
+            name: "list_tables",
+            description: "List all tables in the database",
+            inputSchema: {
+              type: "object",
+              properties: {
+                schema: {
+                  type: "string",
+                  description: "Schema name (default: 'public')",
+                  default: "public",
+                },
               },
             },
           },
-        },
-        {
-          name: "describe_view",
-          description: "Get view definition",
-          inputSchema: {
-            type: "object",
-            properties: {
-              view: {
-                type: "string",
-                description: "View name",
+          {
+            name: "describe_table",
+            description: "Get detailed schema information for a table",
+            inputSchema: {
+              type: "object",
+              properties: {
+                table: {
+                  type: "string",
+                  description: "Table name",
+                },
+                schema: {
+                  type: "string",
+                  description: "Schema name (default: 'public')",
+                  default: "public",
+                },
               },
-              schema: {
-                type: "string",
-                description: "Schema name (default: 'public')",
-                default: "public",
+              required: ["table"],
+            },
+          },
+          {
+            name: "list_schemas",
+            description: "List all schemas in the database",
+            inputSchema: {
+              type: "object",
+              properties: {},
+            },
+          },
+          {
+            name: "explain_query",
+            description: "Get query execution plan using EXPLAIN",
+            inputSchema: {
+              type: "object",
+              properties: {
+                sql: {
+                  type: "string",
+                  description: "SQL query to explain",
+                },
+              },
+              required: ["sql"],
+            },
+          },
+          {
+            name: "get_indexes",
+            description: "Get all indexes for a table",
+            inputSchema: {
+              type: "object",
+              properties: {
+                table: {
+                  type: "string",
+                  description: "Table name",
+                },
+                schema: {
+                  type: "string",
+                  description: "Schema name (default: 'public')",
+                  default: "public",
+                },
+              },
+              required: ["table"],
+            },
+          },
+          {
+            name: "get_foreign_keys",
+            description: "Get all foreign keys for a table",
+            inputSchema: {
+              type: "object",
+              properties: {
+                table: {
+                  type: "string",
+                  description: "Table name",
+                },
+                schema: {
+                  type: "string",
+                  description: "Schema name (default: 'public')",
+                  default: "public",
+                },
+              },
+              required: ["table"],
+            },
+          },
+          {
+            name: "get_table_size",
+            description: "Get table size information (size, row count)",
+            inputSchema: {
+              type: "object",
+              properties: {
+                table: {
+                  type: "string",
+                  description: "Table name",
+                },
+                schema: {
+                  type: "string",
+                  description: "Schema name (default: 'public')",
+                  default: "public",
+                },
+              },
+              required: ["table"],
+            },
+          },
+          {
+            name: "list_views",
+            description: "List all views in a schema",
+            inputSchema: {
+              type: "object",
+              properties: {
+                schema: {
+                  type: "string",
+                  description: "Schema name (default: 'public')",
+                  default: "public",
+                },
               },
             },
-            required: ["view"],
           },
-        },
-        {
-          name: "search_tables",
-          description: "Search tables by name pattern",
-          inputSchema: {
-            type: "object",
-            properties: {
-              pattern: {
-                type: "string",
-                description: "Search pattern (supports wildcards)",
+          {
+            name: "describe_view",
+            description: "Get view definition",
+            inputSchema: {
+              type: "object",
+              properties: {
+                view: {
+                  type: "string",
+                  description: "View name",
+                },
+                schema: {
+                  type: "string",
+                  description: "Schema name (default: 'public')",
+                  default: "public",
+                },
               },
-              schema: {
-                type: "string",
-                description: "Schema name (default: 'public')",
-                default: "public",
-              },
+              required: ["view"],
             },
-            required: ["pattern"],
           },
-        },
-        {
-          name: "get_table_stats",
-          description: "Get detailed table statistics (row count, sizes)",
-          inputSchema: {
-            type: "object",
-            properties: {
-              table: {
-                type: "string",
-                description: "Table name",
+          {
+            name: "search_tables",
+            description: "Search tables by name pattern",
+            inputSchema: {
+              type: "object",
+              properties: {
+                pattern: {
+                  type: "string",
+                  description: "Search pattern (supports wildcards)",
+                },
+                schema: {
+                  type: "string",
+                  description: "Schema name (default: 'public')",
+                  default: "public",
+                },
               },
-              schema: {
-                type: "string",
-                description: "Schema name (default: 'public')",
-                default: "public",
-              },
+              required: ["pattern"],
             },
-            required: ["table"],
           },
-        },
-      ];
+          {
+            name: "get_table_stats",
+            description: "Get detailed table statistics (row count, sizes)",
+            inputSchema: {
+              type: "object",
+              properties: {
+                table: {
+                  type: "string",
+                  description: "Table name",
+                },
+                schema: {
+                  type: "string",
+                  description: "Schema name (default: 'public')",
+                  default: "public",
+                },
+              },
+              required: ["table"],
+            },
+          }
+        );
+      }
 
       // Add Redis-specific tools if using Redis adapter
       if (this.isRedis) {
-        const redisAdapter = this.adapter as RedisAdapter;
+        const redisAdapter = this.adapter as any;
         tools.push(
           {
             name: "redis_get",
@@ -535,7 +539,7 @@ export class DatabaseMCPServer {
 
       // Add MongoDB-specific tools if using MongoDB adapter
       if (this.isMongo) {
-        const mongoAdapter = this.adapter as MongoAdapter;
+        const mongoAdapter = this.adapter as any;
         tools.push(
           {
             name: "mongo_find",
@@ -812,7 +816,7 @@ export class DatabaseMCPServer {
 
       // Add LDAP-specific tools if using LDAP adapter
       if (this.isLDAP) {
-        const ldapAdapter = this.adapter as LDAPAdapter;
+        const ldapAdapter = this.adapter as any;
         tools.push(
           {
             name: "ldap_search",
@@ -933,6 +937,44 @@ export class DatabaseMCPServer {
                 },
               },
               required: ["dn", "attribute", "value"],
+            },
+          },
+          {
+            name: "ldap_search_folder_structure",
+            description: "Search for folder structure in LDAP directory (organizational units, containers, domains) and return hierarchical structure",
+            inputSchema: {
+              type: "object",
+              properties: {
+                base: {
+                  type: "string",
+                  description: "Base DN for search (e.g., 'dc=example,dc=com'). Empty string searches from root.",
+                  default: "",
+                },
+                depth: {
+                  type: "number",
+                  description: "Maximum depth to traverse (default: 10)",
+                  default: 10,
+                },
+                include_entries: {
+                  type: "boolean",
+                  description: "Include full entry attributes in result (default: false)",
+                  default: false,
+                },
+              },
+            },
+          },
+          {
+            name: "ldap_list_folders",
+            description: "Get a flat list of all folders (OUs, containers, domains) in the LDAP directory",
+            inputSchema: {
+              type: "object",
+              properties: {
+                base: {
+                  type: "string",
+                  description: "Base DN for search (e.g., 'dc=example,dc=com'). Empty string searches from root.",
+                  default: "",
+                },
+              },
             },
           }
         );
@@ -1156,7 +1198,7 @@ export class DatabaseMCPServer {
             if (!this.isRedis) {
               throw new Error("This tool is only available for Redis");
             }
-            const redisAdapter = this.adapter as RedisAdapter;
+            const redisAdapter = this.adapter as any;
             const { key } = args as { key: string };
             const value = await redisAdapter.get(key);
             return {
@@ -1174,7 +1216,7 @@ export class DatabaseMCPServer {
             if (!this.isRedis) {
               throw new Error("This tool is only available for Redis");
             }
-            const redisAdapter = this.adapter as RedisAdapter;
+            const redisAdapter = this.adapter as any;
             const { key, value, ttl } = args as { key: string; value: string; ttl?: number };
             await redisAdapter.set(key, value, ttl);
             return {
@@ -1192,7 +1234,7 @@ export class DatabaseMCPServer {
             if (!this.isRedis) {
               throw new Error("This tool is only available for Redis");
             }
-            const redisAdapter = this.adapter as RedisAdapter;
+            const redisAdapter = this.adapter as any;
             const { key } = args as { key: string };
             const deleted = await redisAdapter.del(key);
             return {
@@ -1209,7 +1251,7 @@ export class DatabaseMCPServer {
             if (!this.isRedis) {
               throw new Error("This tool is only available for Redis");
             }
-            const redisAdapter = this.adapter as RedisAdapter;
+            const redisAdapter = this.adapter as any;
             const { pattern } = args as { pattern: string };
             const keys = await redisAdapter.keys(pattern);
             return {
@@ -1226,7 +1268,7 @@ export class DatabaseMCPServer {
             if (!this.isRedis) {
               throw new Error("This tool is only available for Redis");
             }
-            const redisAdapter = this.adapter as RedisAdapter;
+            const redisAdapter = this.adapter as any;
             const { key } = args as { key: string };
             const exists = await redisAdapter.exists(key);
             return {
@@ -1243,7 +1285,7 @@ export class DatabaseMCPServer {
             if (!this.isRedis) {
               throw new Error("This tool is only available for Redis");
             }
-            const redisAdapter = this.adapter as RedisAdapter;
+            const redisAdapter = this.adapter as any;
             const { key } = args as { key: string };
             const ttl = await redisAdapter.ttl(key);
             return {
@@ -1261,7 +1303,7 @@ export class DatabaseMCPServer {
             if (!this.isRedis) {
               throw new Error("This tool is only available for Redis");
             }
-            const redisAdapter = this.adapter as RedisAdapter;
+            const redisAdapter = this.adapter as any;
             const { key, seconds } = args as { key: string; seconds: number };
             const result = await redisAdapter.expire(key, seconds);
             return {
@@ -1278,7 +1320,7 @@ export class DatabaseMCPServer {
             if (!this.isRedis) {
               throw new Error("This tool is only available for Redis");
             }
-            const redisAdapter = this.adapter as RedisAdapter;
+            const redisAdapter = this.adapter as any;
             const { key } = args as { key: string };
             const type = await redisAdapter.type(key);
             return {
@@ -1295,7 +1337,7 @@ export class DatabaseMCPServer {
             if (!this.isRedis) {
               throw new Error("This tool is only available for Redis");
             }
-            const redisAdapter = this.adapter as RedisAdapter;
+            const redisAdapter = this.adapter as any;
             const size = await redisAdapter.dbsize();
             return {
               content: [
@@ -1311,7 +1353,7 @@ export class DatabaseMCPServer {
             if (!this.isRedis) {
               throw new Error("This tool is only available for Redis");
             }
-            const redisAdapter = this.adapter as RedisAdapter;
+            const redisAdapter = this.adapter as any;
             const { section } = args as { section?: string };
             const info = await redisAdapter.info(section);
             return {
@@ -1328,7 +1370,7 @@ export class DatabaseMCPServer {
             if (!this.isRedis) {
               throw new Error("This tool is only available for Redis");
             }
-            const redisAdapter = this.adapter as RedisAdapter;
+            const redisAdapter = this.adapter as any;
             const { key, field } = args as { key: string; field: string };
             const value = await redisAdapter.hget(key, field);
             return {
@@ -1346,7 +1388,7 @@ export class DatabaseMCPServer {
             if (!this.isRedis) {
               throw new Error("This tool is only available for Redis");
             }
-            const redisAdapter = this.adapter as RedisAdapter;
+            const redisAdapter = this.adapter as any;
             const { key, field, value } = args as { key: string; field: string; value: string };
             const result = await redisAdapter.hset(key, field, value);
             return {
@@ -1363,7 +1405,7 @@ export class DatabaseMCPServer {
             if (!this.isRedis) {
               throw new Error("This tool is only available for Redis");
             }
-            const redisAdapter = this.adapter as RedisAdapter;
+            const redisAdapter = this.adapter as any;
             const { key } = args as { key: string };
             const hash = await redisAdapter.hgetall(key);
             return {
@@ -1380,7 +1422,7 @@ export class DatabaseMCPServer {
             if (!this.isRedis) {
               throw new Error("This tool is only available for Redis");
             }
-            const redisAdapter = this.adapter as RedisAdapter;
+            const redisAdapter = this.adapter as any;
             const { key, start, stop } = args as { key: string; start: number; stop: number };
             const list = await redisAdapter.lrange(key, start, stop);
             return {
@@ -1397,7 +1439,7 @@ export class DatabaseMCPServer {
             if (!this.isRedis) {
               throw new Error("This tool is only available for Redis");
             }
-            const redisAdapter = this.adapter as RedisAdapter;
+            const redisAdapter = this.adapter as any;
             const { key } = args as { key: string };
             const members = await redisAdapter.smembers(key);
             return {
@@ -1414,7 +1456,7 @@ export class DatabaseMCPServer {
             if (!this.isRedis) {
               throw new Error("This tool is only available for Redis");
             }
-            const redisAdapter = this.adapter as RedisAdapter;
+            const redisAdapter = this.adapter as any;
             const { key, start, stop, with_scores } = args as {
               key: string;
               start: number;
@@ -1437,7 +1479,7 @@ export class DatabaseMCPServer {
             if (!this.isMongo) {
               throw new Error("This tool is only available for MongoDB");
             }
-            const mongoAdapter = this.adapter as MongoAdapter;
+            const mongoAdapter = this.adapter as any;
             const { collection, filter = {}, limit = 100, skip = 0 } = args as {
               collection: string;
               filter?: any;
@@ -1459,7 +1501,7 @@ export class DatabaseMCPServer {
             if (!this.isMongo) {
               throw new Error("This tool is only available for MongoDB");
             }
-            const mongoAdapter = this.adapter as MongoAdapter;
+            const mongoAdapter = this.adapter as any;
             const { collection, filter = {} } = args as {
               collection: string;
               filter?: any;
@@ -1480,7 +1522,7 @@ export class DatabaseMCPServer {
             if (!this.isMongo) {
               throw new Error("This tool is only available for MongoDB");
             }
-            const mongoAdapter = this.adapter as MongoAdapter;
+            const mongoAdapter = this.adapter as any;
             const { collection, document } = args as {
               collection: string;
               document: any;
@@ -1501,7 +1543,7 @@ export class DatabaseMCPServer {
             if (!this.isMongo) {
               throw new Error("This tool is only available for MongoDB");
             }
-            const mongoAdapter = this.adapter as MongoAdapter;
+            const mongoAdapter = this.adapter as any;
             const { collection, documents } = args as {
               collection: string;
               documents: any[];
@@ -1522,7 +1564,7 @@ export class DatabaseMCPServer {
             if (!this.isMongo) {
               throw new Error("This tool is only available for MongoDB");
             }
-            const mongoAdapter = this.adapter as MongoAdapter;
+            const mongoAdapter = this.adapter as any;
             const { collection, filter, update } = args as {
               collection: string;
               filter: any;
@@ -1544,7 +1586,7 @@ export class DatabaseMCPServer {
             if (!this.isMongo) {
               throw new Error("This tool is only available for MongoDB");
             }
-            const mongoAdapter = this.adapter as MongoAdapter;
+            const mongoAdapter = this.adapter as any;
             const { collection, filter, update } = args as {
               collection: string;
               filter: any;
@@ -1566,7 +1608,7 @@ export class DatabaseMCPServer {
             if (!this.isMongo) {
               throw new Error("This tool is only available for MongoDB");
             }
-            const mongoAdapter = this.adapter as MongoAdapter;
+            const mongoAdapter = this.adapter as any;
             const { collection, filter } = args as {
               collection: string;
               filter: any;
@@ -1587,7 +1629,7 @@ export class DatabaseMCPServer {
             if (!this.isMongo) {
               throw new Error("This tool is only available for MongoDB");
             }
-            const mongoAdapter = this.adapter as MongoAdapter;
+            const mongoAdapter = this.adapter as any;
             const { collection, filter } = args as {
               collection: string;
               filter: any;
@@ -1607,7 +1649,7 @@ export class DatabaseMCPServer {
             if (!this.isMongo) {
               throw new Error("This tool is only available for MongoDB");
             }
-            const mongoAdapter = this.adapter as MongoAdapter;
+            const mongoAdapter = this.adapter as any;
             const { collection, filter = {} } = args as {
               collection: string;
               filter?: any;
@@ -1627,7 +1669,7 @@ export class DatabaseMCPServer {
             if (!this.isMongo) {
               throw new Error("This tool is only available for MongoDB");
             }
-            const mongoAdapter = this.adapter as MongoAdapter;
+            const mongoAdapter = this.adapter as any;
             const { collection, pipeline } = args as {
               collection: string;
               pipeline: any[];
@@ -1647,7 +1689,7 @@ export class DatabaseMCPServer {
             if (!this.isMongo) {
               throw new Error("This tool is only available for MongoDB");
             }
-            const mongoAdapter = this.adapter as MongoAdapter;
+            const mongoAdapter = this.adapter as any;
             const collections = await mongoAdapter.listCollections();
             return {
               content: [
@@ -1663,7 +1705,7 @@ export class DatabaseMCPServer {
             if (!this.isMongo) {
               throw new Error("This tool is only available for MongoDB");
             }
-            const mongoAdapter = this.adapter as MongoAdapter;
+            const mongoAdapter = this.adapter as any;
             const { collection } = args as { collection: string };
             const stats = await mongoAdapter.getCollectionStats(collection);
             return {
@@ -1680,7 +1722,7 @@ export class DatabaseMCPServer {
             if (!this.isMongo) {
               throw new Error("This tool is only available for MongoDB");
             }
-            const mongoAdapter = this.adapter as MongoAdapter;
+            const mongoAdapter = this.adapter as any;
             const { collection } = args as { collection: string };
             const indexes = await (mongoAdapter as any).getIndexesForCollection(collection);
             return {
@@ -1698,7 +1740,7 @@ export class DatabaseMCPServer {
             if (!this.isMongo) {
               throw new Error("This tool is only available for MongoDB");
             }
-            const mongoAdapter = this.adapter as MongoAdapter;
+            const mongoAdapter = this.adapter as any;
             const { collection, keys, options = {} } = args as {
               collection: string;
               keys: any;
@@ -1719,7 +1761,7 @@ export class DatabaseMCPServer {
             if (!this.isMongo) {
               throw new Error("This tool is only available for MongoDB");
             }
-            const mongoAdapter = this.adapter as MongoAdapter;
+            const mongoAdapter = this.adapter as any;
             const stats = await mongoAdapter.getDatabaseStats();
             return {
               content: [
@@ -1736,7 +1778,7 @@ export class DatabaseMCPServer {
             if (!this.isLDAP) {
               throw new Error("This tool is only available for LDAP");
             }
-            const ldapAdapter = this.adapter as LDAPAdapter;
+            const ldapAdapter = this.adapter as any;
             const { base, filter, scope = "sub", attributes = ["*"] } = args as {
               base: string;
               filter: string;
@@ -1758,7 +1800,7 @@ export class DatabaseMCPServer {
             if (!this.isLDAP) {
               throw new Error("This tool is only available for LDAP");
             }
-            const ldapAdapter = this.adapter as LDAPAdapter;
+            const ldapAdapter = this.adapter as any;
             const { dn, password } = args as { dn: string; password: string };
             const authenticated = await ldapAdapter.authenticate(dn, password);
             return {
@@ -1776,7 +1818,7 @@ export class DatabaseMCPServer {
             if (!this.isLDAP) {
               throw new Error("This tool is only available for LDAP");
             }
-            const ldapAdapter = this.adapter as LDAPAdapter;
+            const ldapAdapter = this.adapter as any;
             const { dn, attributes } = args as {
               dn: string;
               attributes: Record<string, string | string[]>;
@@ -1797,7 +1839,7 @@ export class DatabaseMCPServer {
             if (!this.isLDAP) {
               throw new Error("This tool is only available for LDAP");
             }
-            const ldapAdapter = this.adapter as LDAPAdapter;
+            const ldapAdapter = this.adapter as any;
             const { dn, change } = args as { dn: string; change: any };
             await ldapAdapter.modify(dn, change);
             return {
@@ -1815,7 +1857,7 @@ export class DatabaseMCPServer {
             if (!this.isLDAP) {
               throw new Error("This tool is only available for LDAP");
             }
-            const ldapAdapter = this.adapter as LDAPAdapter;
+            const ldapAdapter = this.adapter as any;
             const { dn } = args as { dn: string };
             await ldapAdapter.delete(dn);
             return {
@@ -1832,7 +1874,7 @@ export class DatabaseMCPServer {
             if (!this.isLDAP) {
               throw new Error("This tool is only available for LDAP");
             }
-            const ldapAdapter = this.adapter as LDAPAdapter;
+            const ldapAdapter = this.adapter as any;
             const { dn, attribute, value } = args as {
               dn: string;
               attribute: string;
@@ -1844,6 +1886,44 @@ export class DatabaseMCPServer {
                 {
                   type: "text",
                   text: JSON.stringify({ dn, attribute, value, matched }, null, 2),
+                },
+              ],
+            };
+          }
+
+          case "ldap_search_folder_structure": {
+            if (!this.isLDAP) {
+              throw new Error("This tool is only available for LDAP");
+            }
+            const ldapAdapter = this.adapter as any;
+            const { base = "", depth = 10, include_entries = false } = args as {
+              base?: string;
+              depth?: number;
+              include_entries?: boolean;
+            };
+            const structure = await ldapAdapter.searchFolderStructure(base, depth, include_entries);
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify(structure, null, 2),
+                },
+              ],
+            };
+          }
+
+          case "ldap_list_folders": {
+            if (!this.isLDAP) {
+              throw new Error("This tool is only available for LDAP");
+            }
+            const ldapAdapter = this.adapter as any;
+            const { base = "" } = args as { base?: string };
+            const folders = await ldapAdapter.listFolders(base);
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify({ base: base || "root", folders, count: folders.length }, null, 2),
                 },
               ],
             };

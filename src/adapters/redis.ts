@@ -8,9 +8,20 @@ export class RedisAdapter implements DatabaseAdapter {
   private client: RedisClientType | null = null;
 
   constructor(connectionString: string) {
-    this.client = createClient({
+    const isTLS = connectionString.startsWith("rediss://");
+    const clientOptions: any = {
       url: connectionString,
-    });
+    };
+
+    // Add TLS socket options if using TLS
+    if (isTLS) {
+      clientOptions.socket = {
+        tls: true,
+        rejectUnauthorized: process.env.REDIS_REJECT_UNAUTHORIZED !== "false",
+      };
+    }
+
+    this.client = createClient(clientOptions);
 
     this.client.on("error", (err: Error) => {
       console.error("Redis client error", err);
